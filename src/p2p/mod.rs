@@ -11,3 +11,5 @@ pub mod light;
 
 // Main network service that ties everything together
 pub mod service;
+
+pub use protocol::*;

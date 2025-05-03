@@ -30,8 +30,21 @@ pub mod node;
 // CLI and command handlers
 pub mod cmd;
 
+// Consensus implementations
+pub mod consensus;
+
 // Export core modules
 pub mod wallet;
 
 // Re-export key types for ease of use
-pub use types::{Address, Hash, Signature, Transaction};
+pub use types::{Address, Hash, Signature, Transaction, Slot, ValidatorIndex};
+
+// Re-export consensus and core types
+pub use consensus::ConsensusType;
+pub use core::block::Block;
+pub use core::mempool::MemPool;
+pub use core::state::WorldState;
+pub use core::sync::ChainSync;
+
+// Export RPC types
+pub use rpc::server::RpcServer;
