@@ -1,0 +1,2 @@
+// Shared types and interfaces across the protocol
+pub type Hash = [u8; 32];
