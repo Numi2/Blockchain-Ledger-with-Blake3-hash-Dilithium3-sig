@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
+use tracing::{debug, error, info, warn};
 
 /// Reputation score thresholds
 pub const REPUTATION_GOOD: i32 = 100;

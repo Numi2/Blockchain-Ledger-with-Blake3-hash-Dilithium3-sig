@@ -13,6 +13,35 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use zeroize::{Zeroize, Zeroizing};
 use blake3;
+use crate::wallet::encryption::{PasswordEncryption, KdfParams, EncryptedData};
+use thiserror::Error;
+use uuid::Uuid;
+use tracing::{debug, error, info, warn};
+
+/// KeyStore error
+#[derive(Error, Debug)]
+pub enum KeyStoreError {
+    #[error("File error: {0}")]
+    FileError(#[from] std::io::Error),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
+    
+    #[error("Key not found: {0}")]
+    KeyNotFound(String),
+    
+    #[error("Invalid password")]
+    InvalidPassword,
+    
+    #[error("Account locked: {0}")]
+    AccountLocked(String),
+}
+
+/// Result type for KeyStore operations
+pub type KeyStoreResult<T> = Result<T, KeyStoreError>;
 
 /// EncryptedData represents encrypted data with its nonce
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,6 +70,15 @@ pub struct KeyInfo {
     
     /// Creation timestamp
     pub created_at: u64,
+    
+    /// Last rotation timestamp
+    pub rotated_at: Option<u64>,
+    
+    /// Failed password attempts
+    pub failed_attempts: u32,
+    
+    /// Locked until timestamp
+    pub locked_until: Option<u64>,
 }
 
 /// Encrypted key file structure
@@ -62,20 +100,17 @@ pub struct EncryptedKeyFile {
     pub version: u32,
 }
 
-/// Key derivation function parameters
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KdfParams {
-    /// Function name (e.g., "pbkdf2", "scrypt")
-    pub function: String,
+/// Key rotation status
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeyRotationStatus {
+    /// Key rotation not needed
+    NotNeeded,
     
-    /// Iterations or work factor
-    pub iterations: u32,
+    /// Key rotation recommended (but not urgent)
+    Recommended,
     
-    /// Salt
-    pub salt: Vec<u8>,
-    
-    /// Other parameters
-    pub params: HashMap<String, serde_json::Value>,
+    /// Key rotation required as soon as possible
+    Required,
 }
 
 /// KeyStore manages keys and performs cryptographic operations
@@ -88,6 +123,18 @@ pub struct KeyStore {
     
     /// In-memory cache of key info
     key_cache: HashMap<String, KeyInfo>,
+    
+    /// Key derivation parameters
+    kdf_params: KdfParams,
+    
+    /// Maximum failed password attempts
+    max_password_attempts: u32,
+    
+    /// Lockout period in seconds
+    lockout_secs: u64,
+    
+    /// Key rotation period in seconds (0 = never)
+    rotation_secs: u64,
 }
 
 impl KeyStore {
@@ -103,6 +150,10 @@ impl KeyStore {
             db: Some(db),
             keys_dir: keys_dir.clone(),
             key_cache: HashMap::new(),
+            kdf_params: KdfParams::default(),
+            max_password_attempts: 5,
+            lockout_secs: 15 * 60, // 15 minutes
+            rotation_secs: 90 * 24 * 60 * 60, // 90 days
         };
         
         // Load key info from files
@@ -123,6 +174,10 @@ impl KeyStore {
             db: None,
             keys_dir: keys_dir.clone(),
             key_cache: HashMap::new(),
+            kdf_params: KdfParams::default(),
+            max_password_attempts: 5,
+            lockout_secs: 15 * 60, // 15 minutes
+            rotation_secs: 90 * 24 * 60 * 60, // 90 days
         };
         
         // Load key info from files
@@ -204,6 +259,9 @@ impl KeyStore {
             address,
             name,
             created_at: current_timestamp(),
+            rotated_at: None,
+            failed_attempts: 0,
+            locked_until: None,
         };
         
         // Encrypt the private key

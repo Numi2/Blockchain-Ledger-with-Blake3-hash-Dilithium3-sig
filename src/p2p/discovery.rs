@@ -292,6 +292,91 @@ impl DiscoveryBehaviour {
         let reputation = self.reputation.read().unwrap();
         reputation.is_banned(&peer_id.to_string())
     }
+    
+    /// Bootstrap the node with initial peers
+    pub fn bootstrap(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // If we have no peers or too few, use the bootstrap nodes
+        if self.known_peers.values().filter(|p| p.connected).count() < 3 {
+            for node in &self.config.bootstrap_nodes {
+                match parse_peer_addr(node) {
+                    Ok((peer_id, addr)) => {
+                        // Add to Kademlia
+                        self.kad.add_address(&peer_id, addr.clone());
+                        
+                        // Add to known peers
+                        self.update_peer_info(peer_id, |info| {
+                            if !info.addresses.contains(&addr.to_string()) {
+                                info.addresses.push(addr.to_string());
+                            }
+                            info.last_seen = current_time_secs();
+                        });
+                        
+                        // Add to discovered peers for connection
+                        if !self.is_connected(&peer_id) && !self.is_banned(&peer_id) {
+                            self.discovered_peers.insert(peer_id);
+                        }
+                    },
+                    Err(e) => {
+                        println!("Failed to parse bootstrap node {}: {}", node, e);
+                    }
+                }
+            }
+        }
+        
+        // Prioritize bootstrap nodes
+        self.start_discovery();
+        
+        Ok(())
+    }
+    
+    /// Get the next peers to attempt connections to
+    pub fn next_connection_candidates(&mut self, limit: usize) -> Vec<(PeerId, Vec<String>)> {
+        let mut candidates = Vec::new();
+        
+        // Take peers from the discovered list
+        let mut to_try: Vec<PeerId> = self.discovered_peers
+            .iter()
+            .filter(|p| !self.is_connected(p) && !self.is_banned(p))
+            .cloned()
+            .collect();
+        
+        // Sort by reputation
+        to_try.sort_by(|a, b| {
+            let a_rep = self.get_reputation(a);
+            let b_rep = self.get_reputation(b);
+            b_rep.cmp(&a_rep) // Higher reputation first
+        });
+        
+        // Take the top 'limit' peers
+        for peer_id in to_try.into_iter().take(limit) {
+            if let Some(info) = self.known_peers.get(&peer_id) {
+                candidates.push((peer_id, info.addresses.clone()));
+            }
+        }
+        
+        candidates
+    }
+    
+    /// Mark a peer as connected
+    pub fn mark_connected(&mut self, peer_id: &PeerId, is_outbound: bool) {
+        let direction = if is_outbound { "outbound" } else { "inbound" };
+        
+        self.update_peer_info(*peer_id, |info| {
+            info.connected = true;
+            info.direction = Some(direction.to_string());
+        });
+        
+        // Remove from discovered peers
+        self.discovered_peers.remove(peer_id);
+    }
+    
+    /// Mark a peer as disconnected
+    pub fn mark_disconnected(&mut self, peer_id: &PeerId) {
+        self.update_peer_info(*peer_id, |info| {
+            info.connected = false;
+            info.direction = None;
+        });
+    }
 }
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for DiscoveryBehaviour {

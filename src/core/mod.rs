@@ -15,10 +15,20 @@ pub mod state;
 // Execution engine
 pub mod execution;
 
+// Memory pool for pending transactions
 pub mod mempool;
+
+// Blockchain synchronization
 pub mod sync;
 
-pub use block::*;
-pub use mempool::*;
-pub use state::*;
-pub use sync::*;
+// Transaction validation
+pub mod validation;
+
+// STARK proofs for state transitions
+pub mod stark;
+
+pub use block::{Block, BlockHeader, BlockBody};
+pub use mempool::MemPool;
+pub use state::{UTXOState, State};
+pub use validation::{TransactionValidator, ValidationError, ValidationResult};
+pub use stark::{StateProof, ProofGenerator, ProofVerifier, StarkError, StarkResult};

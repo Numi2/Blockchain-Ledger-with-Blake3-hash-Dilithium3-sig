@@ -6,6 +6,11 @@ authors = ["Your Name <you@example.com>"]
 description = "A simple, scalable, resilient blockchain base layer to serve as the World Ledger."
 license = "MIT OR Apache-2.0"
 
+# Enable criterion for benchmarking
+[[bench]]
+name = "state_transition"
+harness = false
+
 [dependencies]
 # Core Hashing
 blake3 = "1.5"
@@ -86,3 +91,5 @@ tracing-appender = "0.2"
 # Testing tools
 proptest = "1.4"
 tempfile = "3.8"
+criterion = "0.4"
+rand_chacha = "0.3.1"
