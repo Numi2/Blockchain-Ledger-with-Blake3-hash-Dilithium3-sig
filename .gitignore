@@ -1,3 +1,5 @@
+# Ignore Rust build artifacts
+target/
 # Git ignore file for Rust project
 
 # Build output

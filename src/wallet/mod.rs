@@ -1,49 +1,59 @@
-// Wallet module for key management and transaction signing
+// Core wallet functionality
+mod bip39;
 mod keystore;
 mod account;
 mod transaction;
-mod bip39;
 
+// Testing
+#[cfg(test)]
+mod test_dilithium;
+
+// Re-exports
+pub use bip39::*;
 pub use keystore::*;
 pub use account::*;
 pub use transaction::*;
-pub use bip39::*;
 
-use thiserror::Error;
+// Type aliases
+pub type WalletResult<T> = Result<T, WalletError>;
 
-/// Error type for wallet operations
-#[derive(Debug, Error)]
+// Wallet errors
+#[derive(Debug, thiserror::Error)]
 pub enum WalletError {
-    #[error("Storage error: {0}")]
-    Storage(#[from] crate::storage::StorageError),
-
-    #[error("Invalid mnemonic: {0}")]
-    InvalidMnemonic(String),
-
-    #[error("Invalid key: {0}")]
-    InvalidKey(String),
-
-    #[error("Invalid password")]
-    InvalidPassword,
-
+    #[error("Wallet not found: {0}")]
+    WalletNotFound(String),
+    
     #[error("Account not found: {0}")]
     AccountNotFound(String),
-
-    #[error("Insufficient funds")]
-    InsufficientFunds,
-
-    #[error("Invalid transaction: {0}")]
-    InvalidTransaction(String),
-
+    
+    #[error("Invalid password")]
+    InvalidPassword,
+    
+    #[error("Invalid key: {0}")]
+    InvalidKey(String),
+    
+    #[error("Invalid mnemonic: {0}")]
+    InvalidMnemonic(String),
+    
     #[error("Crypto error: {0}")]
     Crypto(String),
-
-    #[error("IO error: {0}")]
+    
+    #[error("Storage error: {0}")]
+    Storage(String),
+    
+    #[error("Invalid transaction: {0}")]
+    InvalidTransaction(String),
+    
+    #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
-
+    
     #[error("Other error: {0}")]
     Other(String),
+    
+    #[error("Insufficient funds")]
+    InsufficientFunds,
 }
 
-/// Result type for wallet operations
-pub type WalletResult<T> = std::result::Result<T, WalletError>; 
+// If in a test build, export the test module
+#[cfg(test)]
+pub use test_dilithium; 
