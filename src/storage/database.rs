@@ -167,12 +167,12 @@ impl WriteBatchWrapper {
 }
 
 /// Iterator over key-value pairs in the database
-pub struct DatabaseIterator {
+pub struct DatabaseIterator<'a> {
     /// The RocksDB iterator
-    iter: rocksdb::DBIterator,
+    iter: rocksdb::DBIterator<'a>,
 }
 
-impl Iterator for DatabaseIterator {
+impl<'a> Iterator for DatabaseIterator<'a> {
     type Item = (Box<[u8]>, Box<[u8]>);
     
     fn next(&mut self) -> Option<Self::Item> {

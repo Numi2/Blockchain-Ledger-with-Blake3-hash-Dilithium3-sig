@@ -1,31 +1,70 @@
-use crate::types::types::Hash;
+use crate::types::{Address, Hash, Signature};
+use serde::{Serialize, Deserialize};
 
-/// Represents an unspent transaction output.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Represents an unspent transaction output
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Utxo {
-    pub txid: Hash,
-    pub index: u32,
+    /// Transaction hash that created this UTXO
+    pub tx_hash: Hash,
+    
+    /// Output index within the transaction
+    pub output_index: u32,
+    
+    /// Value of this UTXO
     pub value: u64,
-    pub address: [u8; 32], // Typically the recipient's public key hash 
-or address
+    
+    /// Owner address
+    pub address: Address,
+    
+    /// Locktime (0 means immediately spendable)
+    pub locktime: u64,
 }
 
-/// A Transaction Input
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Represents a transaction input (spending a UTXO)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxInput {
-    pub txid: Hash,
-    pub index: u32,
-    // In production: signature, etc.
+    /// Reference to the UTXO being spent
+    pub utxo_ref: UtxoRef,
+    
+    /// Signature authorizing the spend
+    pub signature: Signature,
 }
 
-/// A Transaction Output (for convenience)
-pub type TxOutput = Utxo;
+/// Reference to a UTXO to be spent
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UtxoRef {
+    /// Transaction hash containing the UTXO
+    pub tx_hash: Hash,
+    
+    /// Output index within the transaction
+    pub output_index: u32,
+}
 
-/// Transaction: Basic structure, extendable for signatures/witness in 
-production
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Transaction {
+/// Represents a transaction output creating a new UTXO
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TxOutput {
+    /// Value of the output
+    pub value: u64,
+    
+    /// Owner address
+    pub address: Address,
+    
+    /// Locktime (0 means immediately spendable)
+    pub locktime: u64,
+}
+
+/// UTXO-based transaction
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UtxoTransaction {
+    /// Transaction inputs
     pub inputs: Vec<TxInput>,
+    
+    /// Transaction outputs
     pub outputs: Vec<TxOutput>,
-    // For production: locktime, version, etc.
+    
+    /// Transaction version
+    pub version: u32,
+    
+    /// Locktime
+    pub locktime: u64,
 }

@@ -1,19 +1,35 @@
+use crate::ssz::{SSZError, SSZResult};
+use blake3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Serialize a value using Simple Serialize (SSZ) format
-/// This is a simplistic implementation - in a production system, this would be more complex
-pub fn serialize<T: Serialize>(val: &T) -> Vec<u8> {
-    // For now, we'll use serde_json as a placeholder for actual SSZ serialization
-    // In a real implementation, this would use actual SSZ rules
-    serde_json::to_vec(val).unwrap_or_default()
+/// Serialize a value using SSZ
+pub fn serialize<T: Serialize>(value: &T) -> SSZResult<Vec<u8>> {
+    // For now, we'll use serde_json as a placeholder for SSZ serialization
+    // In a real implementation, you would use proper SSZ encoding
+    serde_json::to_vec(value)
+        .map_err(|e| SSZError::Serialization(e.to_string()))
 }
 
-/// Deserialize a value from SSZ format
-/// This is a simplistic implementation - in a production system, this would be more complex
-pub fn deserialize<'a, T: Deserialize<'a>>(data: &'a [u8]) -> Result<T, String> {
-    // For now, we'll use serde_json as a placeholder for actual SSZ deserialization
-    serde_json::from_slice(data).map_err(|e| e.to_string())
+/// Deserialize a value using SSZ
+pub fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> SSZResult<T> {
+    // For now, we'll use serde_json as a placeholder for SSZ deserialization
+    // In a real implementation, you would use proper SSZ decoding
+    serde_json::from_slice(bytes)
+        .map_err(|e| SSZError::Deserialization(e.to_string()))
+}
+
+/// Calculate the hash tree root of a value
+pub fn hash_tree_root<T: Serialize>(value: &T) -> SSZResult<[u8; 32]> {
+    // For now, we'll use a simplified version that just hashes the serialized bytes
+    // In a real implementation, you would build a proper Merkle tree
+    let bytes = serialize(value)?;
+    let hash = blake3::hash(&bytes);
+    
+    let mut root = [0u8; 32];
+    root.copy_from_slice(hash.as_bytes());
+    
+    Ok(root)
 }
 
 /// Calculate a simple Merkle root from a list of hashes
@@ -39,7 +55,7 @@ pub fn merkleize(chunks: &[Vec<u8>]) -> Vec<u8> {
         .collect();
     
     // Ensure power of 2 chunks by padding
-    let next_power_of_2 = (1 << (padded_chunks.len() as f64).log2().ceil() as usize);
+    let next_power_of_2 = 1 << (padded_chunks.len() as f64).log2().ceil() as usize;
     while padded_chunks.len() < next_power_of_2 {
         padded_chunks.push(vec![0; 32]);
     }
@@ -61,8 +77,8 @@ pub fn merkleize(chunks: &[Vec<u8>]) -> Vec<u8> {
             combined.extend_from_slice(left);
             combined.extend_from_slice(right);
             
-            let hash = crate::core::crypto::blake3::hash(&combined);
-            next_level.push(hash.to_vec());
+            let hash = blake3::hash(&combined);
+            next_level.push(hash.as_bytes().to_vec());
         }
         
         padded_chunks = next_level;
@@ -90,7 +106,7 @@ pub fn create_proof(chunks: &[Vec<u8>], index: usize) -> Vec<Vec<u8>> {
         .collect();
     
     // Ensure power of 2 chunks by padding
-    let next_power_of_2 = (1 << (padded_chunks.len() as f64).log2().ceil() as usize);
+    let next_power_of_2 = 1 << (padded_chunks.len() as f64).log2().ceil() as usize;
     while padded_chunks.len() < next_power_of_2 {
         padded_chunks.push(vec![0; 32]);
     }
@@ -118,8 +134,8 @@ pub fn create_proof(chunks: &[Vec<u8>], index: usize) -> Vec<Vec<u8>> {
             combined.extend_from_slice(left);
             combined.extend_from_slice(right);
             
-            let hash = crate::core::crypto::blake3::hash(&combined);
-            next_layer.push(hash.to_vec());
+            let hash = blake3::hash(&combined);
+            next_layer.push(hash.as_bytes().to_vec());
         }
         
         layer = next_layer;
@@ -151,7 +167,7 @@ pub fn verify_proof(root: &[u8], value: &[u8], proof: &[Vec<u8>], index: usize) 
         combined.extend_from_slice(left);
         combined.extend_from_slice(right);
         
-        current = crate::core::crypto::blake3::hash(&combined).to_vec();
+        current = blake3::hash(&combined).as_bytes().to_vec();
         idx /= 2;
     }
     

@@ -1,5 +1,5 @@
 use crate::wallet::WalletResult;
-use bip39::{Language, Mnemonic, Seed};
+use bip39::{Language, Mnemonic};
 use slip10::{derive_key_from_path, BIP32Path, Curve};
 use zeroize::{Zeroize, Zeroizing};
 use std::str::FromStr;
@@ -82,11 +82,10 @@ impl MnemonicBuilder {
             None => "",
         };
         
-        // Generate the seed
-        let seed = Seed::new(mnemonic, passphrase);
-        let seed_bytes = seed.as_bytes().to_vec();
+        // Generate the seed directly using the mnemonic's to_seed function
+        let seed_bytes = mnemonic.to_seed(passphrase);
         
-        Zeroizing::new(seed_bytes)
+        Zeroizing::new(seed_bytes.to_vec())
     }
     
     /// Derive a key from the seed using the given path

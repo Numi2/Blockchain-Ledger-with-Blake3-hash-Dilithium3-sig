@@ -29,3 +29,9 @@ pub mod node;
 
 // CLI and command handlers
 pub mod cmd;
+
+// Export core modules
+pub mod wallet;
+
+// Re-export key types for ease of use
+pub use types::{Address, Hash, Signature, Transaction};
