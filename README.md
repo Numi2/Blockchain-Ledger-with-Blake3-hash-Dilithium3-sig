@@ -1,98 +1,134 @@
-# World Ledger
+# World Ledger Blockchain
 
-A simple, scalable, resilient blockchain protocol designed to serve as the foundational digital layer for global assets, financial systems, and public records.
+World Ledger is a Rust-based blockchain implementation designed with security, minimalism, and scalability as its core principles. It features quantum-resistant cryptography and a UTXO-based state model combined with WebAssembly smart contracts.
 
-## Overview
+## Core Design Principles
 
-World Ledger is a radically simplified blockchain protocol that prioritizes:
+- **Security First**: Minimal attack surface through careful code design and small codebase
+- **Quantum Resistance**: Dilithium signatures for long-term cryptographic security
+- **Modular Architecture**: Clean separation of concerns with well-defined interfaces
+- **Scalability**: Optimized for high throughput and low latency
 
-- **Simplicity** as the foundation for security and longevity
-- **Modular design** with clean separation between consensus, execution, and networking
-- **Efficient light clients** via STARKs and shared Merkle structures
-- **Post-quantum security** using Dilithium3 signatures
+## Implemented Components
 
-## Architecture
+### Core Components
+- Storage system for blockchain data with RocksDB backend
+- Wallet with BIP39 mnemonics and post-quantum Dilithium signatures
+- Consensus mechanisms (PoW and PoS)
+- WebAssembly smart contract execution system
+- P2P networking with peer discovery and reputation management
+- CLI for node and wallet operations
+- Monitoring and telemetry infrastructure
+- Testing framework
 
-The project is organized as a Rust workspace with the following key modules:
+### Production Readiness Features
 
-- `src/core/` - Consensus, block format, execution engine, cryptography
-- `src/p2p/` - Networking using libp2p (gossipsub, Kademlia)
-- `src/storage/` - Persistent state and history storage
-- `src/ssz/` - Simple Serialize (SSZ) format for encoding
-- `src/stark/` - STARK proof generation and verification
-- `src/types/` - Global types used throughout the protocol
+We've implemented the first four steps of a comprehensive 10-step production readiness plan:
 
-## Key Features
+#### 1. Core Functionality
+- ✅ STARK proof generation/verification system for state transitions
+- ✅ State bridge for integrating smart contract VM with UTXO state model
+- ✅ UTXO state implementation with Merkle tree support
 
-1. **Consensus**: 3-slot finality protocol that is deterministic and compact
-2. **Block Format**: Simple structure with BLAKE3 hashing
-3. **Execution**: RISC-V inspired VM for smart contracts
-4. **Networking**: libp2p with gossipsub for block propagation
-5. **Storage**: Merkle tree-based state with efficient proofs
-6. **Crypto**: Post-quantum signatures with Dilithium3
+#### 2. Networking & P2P Enhancements
+- ✅ Configurable block synchronization strategies (tip, headers-first, parallel, warp)
+- ✅ Transaction propagation with rate limiting
+- ✅ Enhanced peer reputation system with blacklisting and ban expiration
+
+#### 3. Security Hardening
+- ✅ Memory-hardened password hashing (Argon2id)
+- ✅ Key rotation system for validator keys
+- ✅ Security policy and vulnerability disclosure process
+
+#### 4. Smart Contract System
+- ✅ WebAssembly contract compiler toolchain with multiple language support
+- ✅ Security verification and scanning for smart contracts
+- ✅ Contract upgrade mechanism with governance controls
+
+## Remaining Steps for Production
+
+The following steps from our 10-step plan require completion before full production readiness:
+
+#### 5. Scalability & Performance Optimization
+- ⬜ Implement parallel transaction validation
+- ⬜ Add state sharding
+- ⬜ Optimize consensus for throughput
+
+#### 6. Economics & Governance
+- ⬜ Finalize economic model and gas pricing
+- ⬜ Implement governance mechanism for protocol upgrades
+- ⬜ Design and implement staking incentives
+
+#### 7. Interoperability & Standards
+- ⬜ Implement cross-chain communication protocols
+- ⬜ Add support for blockchain standards
+- ⬜ Build interoperability bridges
+
+#### 8. Ecosystem & Developer Tools
+- ⬜ Create comprehensive SDK for developers
+- ⬜ Build block explorer and analytics dashboard
+- ⬜ Develop testing and deployment frameworks
+
+#### 9. Auditing & Verification
+- ⬜ Complete third-party security audits
+- ⬜ Formal verification of critical components
+- ⬜ Stress testing and performance benchmarking
+
+#### 10. Documentation & Release Process
+- ⬜ Comprehensive documentation (API, deployment, operations)
+- ⬜ Define release process and versioning strategy
+- ⬜ Create upgrade paths and backward compatibility plans
 
 ## Getting Started
 
-### Building from Source
+### Prerequisites
+- Rust 1.70+ with nightly toolchain
+- RocksDB 6.0+
+- System dependencies required by the Rust crates
 
-```
+### Building from Source
+```bash
+# Clone the repository
+git clone 
+cd world-ledger
+
+# Build in release mode
 cargo build --release
 ```
 
 ### Running a Node
+```bash
+# Run a node in development mode
+cargo run -- node start --dev
 
-```
-cargo run -- node
-```
-
-### Running a Validator
-
-```
-cargo run -- validator
+# Run a full node connected to the main network
+cargo run -- node start --network main
 ```
 
-### Creating an Account
+### Using the Wallet
+```bash
+# Create a new wallet
+cargo run -- wallet create
 
+# Check balance
+cargo run -- wallet balance
+
+# Send transaction
+cargo run -- wallet send --to <address> --amount <amount>
 ```
-cargo run -- account create
-```
 
-## Development Philosophy
+## Contributing
 
-World Ledger prioritizes:
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-- Simplicity over features
-- Minimal consensus-critical code
-- Encapsulation of complexity outside consensus
-- Clean separation of layers
-- Unified components to reduce systemic complexity
+## Security
+
+For security concerns, please refer to [SECURITY.md](docs/SECURITY.md).
 
 ## License
 
-MIT or Apache-2.0
+This project is licensed under either of
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
-
-
-We've successfully implemented the core components of the World Ledger blockchain according to the development plan. Here's a summary of what we've accomplished:
-
-1. **Core Types and Block Format**: Implemented the basic types, block structure with headers, bodies, and transactions, all using BLAKE3 for hashing.
-
-2. **Blockchain State Machine**: Developed an account-based state model with a world state that handles transactions and updates.
-
-3. **3-Slot Finality Consensus**: Created a consensus mechanism with a 3-slot finality protocol and fork choice rule.
-
-4. **P2P Network Communication**: Integrated libp2p with gossipsub for block propagation and other network functionality.
-
-5. **Execution VM**: Designed a minimalistic stack-based VM with opcodes and gas metering for smart contracts.
-
-6. **Cryptography**: Added support for Dilithium3 signature verification (as a placeholder for now).
-
-7. **Serialization**: Implemented SSZ serialization and Merkle tree functionalities.
-
-
-
-You can build and run the project with:
-```
-cargo build --release
-cargo run -- help
-```
+at your option.

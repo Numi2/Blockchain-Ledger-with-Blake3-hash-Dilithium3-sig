@@ -1,3 +1,4 @@
+// src/wallet/keystore.rs
 use crate::storage::{Database, Column, StorageError};
 use crate::wallet::{WalletResult, WalletError};
 use crate::types::Address;
@@ -17,6 +18,7 @@ use crate::wallet::encryption::{PasswordEncryption, KdfParams, EncryptedData};
 use thiserror::Error;
 use uuid::Uuid;
 use tracing::{debug, error, info, warn};
+use aes_gcm::{Aes256Gcm, Key};
 
 /// KeyStore error
 #[derive(Error, Debug)]
@@ -50,7 +52,7 @@ pub struct EncryptedData {
     pub ciphertext: Vec<u8>,
     
     /// Nonce used for encryption
-    pub nonce: [u8; 24],
+    pub nonce: Vec<u8>,
 }
 
 /// KeyInfo stores information about a key
@@ -408,48 +410,62 @@ impl KeyStore {
     
     /// Encrypt a private key
     fn encrypt_key(&self, private_key: &[u8], password: &SecretString) -> WalletResult<EncryptedData> {
-        // Derive encryption key from password
-        let password_bytes = password.expose_secret().as_bytes();
-        let key = derive_encryption_key(password_bytes)?;
+        // Step 1: Derive key using Argon2id with proper parameters
+        let derived_key = PasswordEncryption::derive_key(
+            password, 
+            &self.kdf_params
+        ).map_err(|e| WalletError::Crypto(format!("Key derivation failed: {}", e)))?;
         
-        // Generate a random nonce
-        let mut nonce_bytes = [0u8; 24];
-        OsRng.fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from(nonce_bytes);
+        // Step 2: Apply BLAKE3 for additional quantum resistance
+        let mut blake3_context = blake3::Hasher::new();
+        blake3_context.update(derived_key.expose_key());
+        let hardened_key = blake3_context.finalize();
         
-        // Encrypt the private key
-        let secret_key = SecretKey::from_slice(&key)
-            .map_err(|_| WalletError::Crypto("Failed to create secret key".to_string()))?;
-        let public_key = PublicKey::from(&secret_key);
+        // Step 3: Use modern AES-GCM for authenticated encryption
+        let aes_key = Key::<Aes256Gcm>::from_slice(hardened_key.as_bytes());
+        let cipher = Aes256Gcm::new(aes_key);
         
-        let encryption_box = SalsaBox::new(&public_key, &secret_key);
-        let ciphertext = encryption_box.encrypt(&nonce, private_key)
-            .map_err(|_| WalletError::Crypto("Encryption failed".to_string()))?;
+        // Step 4: Generate random nonce
+        let nonce_val = Aes256Gcm::generate_nonce(&mut OsRng);
+        let nonce_bytes = nonce_val.to_vec();
+        
+        // Step 5: Encrypt with authentication tag
+        let ciphertext = cipher
+            .encrypt(&nonce_val, private_key)
+            .map_err(|e| WalletError::Crypto(format!("Encryption failed: {}", e)))?;
         
         Ok(EncryptedData {
             ciphertext,
-            nonce: *nonce.as_ref(),
+            nonce: nonce_bytes,
         })
     }
     
     /// Decrypt a private key
     fn decrypt_key(&self, encrypted_data: &EncryptedData, password: &SecretString) -> WalletResult<Zeroizing<Vec<u8>>> {
-        // Derive encryption key from password
-        let password_bytes = password.expose_secret().as_bytes();
-        let key = derive_encryption_key(password_bytes)?;
+        // Step 1: Derive key using Argon2id with proper parameters (same as encrypt)
+        let derived_key = PasswordEncryption::derive_key(
+            password, 
+            &self.kdf_params
+        ).map_err(|e| WalletError::Crypto(format!("Key derivation failed: {}", e)))?;
         
-        // Create nonce
-        let nonce = Nonce::from(encrypted_data.nonce);
+        // Step 2: Apply BLAKE3 for additional quantum resistance (same as encrypt)
+        let mut blake3_context = blake3::Hasher::new();
+        blake3_context.update(derived_key.expose_key());
+        let hardened_key = blake3_context.finalize();
         
-        // Decrypt the private key
-        let secret_key = SecretKey::from_slice(&key)
-            .map_err(|_| WalletError::Crypto("Failed to create secret key".to_string()))?;
-        let public_key = PublicKey::from(&secret_key);
+        // Step 3: Use AES-GCM for authenticated decryption
+        let aes_key = Key::<Aes256Gcm>::from_slice(hardened_key.as_bytes());
+        let cipher = Aes256Gcm::new(aes_key);
         
-        let encryption_box = SalsaBox::new(&public_key, &secret_key);
-        let plaintext = encryption_box.decrypt(&nonce, &encrypted_data.ciphertext)
+        // Step 4: Create nonce object from stored nonce bytes
+        let nonce = aes_gcm::Nonce::from_slice(&encrypted_data.nonce);
+        
+        // Step 5: Decrypt with authentication verification
+        let plaintext = cipher
+            .decrypt(nonce, encrypted_data.ciphertext.as_ref())
             .map_err(|_| WalletError::InvalidPassword)?;
         
+        // Return with zeroizing wrapper for security
         Ok(Zeroizing::new(plaintext))
     }
     

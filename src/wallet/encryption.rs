@@ -1,3 +1,4 @@
+// src/wallet/encryption.rs
 use argon2::{
     password_hash::{
         rand_core::OsRng,

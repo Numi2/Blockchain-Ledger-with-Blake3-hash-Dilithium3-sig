@@ -1,0 +1,14 @@
+[package]
+name = "encryption_test"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "encryption_test"
+path = "encryption_test.rs"
+
+[dependencies]
+argon2 = "0.5.2"
+aes-gcm = "0.10.2"
+secrecy = "0.8.0"
+zeroize = { version = "1.6.0", features = ["derive"] } 
