@@ -1,13 +1,114 @@
 pub mod utxo;
 pub mod merkle;
-pub mod state;
+mod state;
 
-pub use utxo::*;
-pub use merkle::*;
-pub use state::*;
+pub use state::WorldState;
+pub use utxo::{UTXOSet, UTXO, UTXORef, UTXOError, UTXOResult, MerkleProof};
 
-use crate::types::{Address, Hash};
-use std::collections::HashMap;
+/// The core state interface that all state implementations must provide
+pub trait State {
+    /// Apply a transaction to the state
+    fn apply_transaction(&mut self, tx: &crate::types::Transaction) -> Result<(), String>;
+    
+    /// Get the state root hash
+    fn state_root(&self) -> crate::types::Hash;
+    
+    /// Commit changes to state
+    fn commit(&mut self) -> Result<(), String>;
+    
+    /// Reset the state to a previous root
+    fn reset(&mut self, root: &crate::types::Hash) -> Result<(), String>;
+    
+    /// Generate a proof for a key in the state
+    fn generate_proof(&self, key: &[u8]) -> Option<Vec<u8>>;
+    
+    /// Verify a proof for a key and value
+    fn verify_proof(&self, key: &[u8], value: &[u8], proof: &[u8]) -> bool;
+}
+
+/// Implementation of State trait using the UTXO model
+pub struct UTXOState {
+    utxo_set: UTXOSet,
+    current_height: u64,
+}
+
+impl UTXOState {
+    /// Create a new UTXO-based state
+    pub fn new() -> Self {
+        Self {
+            utxo_set: UTXOSet::new(),
+            current_height: 0,
+        }
+    }
+    
+    /// Set the current block height
+    pub fn set_height(&mut self, height: u64) {
+        self.current_height = height;
+        self.utxo_set.set_height(height);
+    }
+    
+    /// Get the current block height
+    pub fn height(&self) -> u64 {
+        self.current_height
+    }
+    
+    /// Get the underlying UTXO set
+    pub fn utxo_set(&self) -> &UTXOSet {
+        &self.utxo_set
+    }
+    
+    /// Get a mutable reference to the underlying UTXO set
+    pub fn utxo_set_mut(&mut self) -> &mut UTXOSet {
+        &mut self.utxo_set
+    }
+}
+
+impl State for UTXOState {
+    fn apply_transaction(&mut self, tx: &crate::types::Transaction) -> Result<(), String> {
+        self.utxo_set.apply_transaction(tx)
+            .map_err(|e| format!("UTXO error: {:?}", e))
+    }
+    
+    fn state_root(&self) -> crate::types::Hash {
+        self.utxo_set.merkle_root()
+    }
+    
+    fn commit(&mut self) -> Result<(), String> {
+        // UTXO model doesn't need explicit commits as it's applied immediately
+        Ok(())
+    }
+    
+    fn reset(&mut self, root: &crate::types::Hash) -> Result<(), String> {
+        // In a real implementation, we would restore the UTXO set to the state with the given root
+        Err("Reset not implemented for UTXO state".to_string())
+    }
+    
+    fn generate_proof(&self, key: &[u8]) -> Option<Vec<u8>> {
+        // Convert key to UTXO ID (assuming key is a serialized UTXO ID)
+        if key.len() != 32 {
+            return None;
+        }
+        
+        let mut id = [0u8; 32];
+        id.copy_from_slice(key);
+        
+        // Generate and serialize the proof
+        self.utxo_set.generate_proof(&id)
+            .map(|proof| bincode::serialize(&proof).ok())
+            .flatten()
+    }
+    
+    fn verify_proof(&self, key: &[u8], value: &[u8], proof_bytes: &[u8]) -> bool {
+        // Deserialize the proof
+        let proof: MerkleProof = match bincode::deserialize(proof_bytes) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        
+        // Verify the proof
+        proof.verify()
+    }
+}
 
 /// Account stores an individual account state
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

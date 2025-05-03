@@ -89,13 +89,7 @@ We've successfully implemented the core components of the World Ledger blockchai
 
 7. **Serialization**: Implemented SSZ serialization and Merkle tree functionalities.
 
-The codebase now has a solid foundation for a blockchain protocol that follows the design principles of simplicity, security, and modularity. To continue development, you might want to:
 
-1. Implement a more complete storage layer
-2. Expand the STARK prover/verifier module
-3. Enhance the VM with more opcodes for a full RISC-V implementation
-4. Add more networking features for peer discovery and block syncing
-5. Develop a proper wallet implementation
 
 You can build and run the project with:
 ```

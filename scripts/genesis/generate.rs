@@ -1,0 +1,1 @@
+// Genesis block generation script

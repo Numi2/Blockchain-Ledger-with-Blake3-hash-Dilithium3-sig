@@ -33,6 +33,12 @@ pub mod cmd;
 // Consensus implementations
 pub mod consensus;
 
+// Smart contract implementation
+pub mod contracts;
+
+// Monitoring and telemetry
+pub mod monitoring;
+
 // Export core modules
 pub mod wallet;
 
